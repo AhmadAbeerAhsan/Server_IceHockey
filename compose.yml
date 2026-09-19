@@ -5,4 +5,9 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8081:8081/tcp"
+      - "8080:8080/udp"
+    develop:
+      watch:
+        - action: rebuild
+          path: .
