@@ -1,74 +1,183 @@
-A simple HTTP server implemented in C++ using the C++ REST SDK. It listens for incoming HTTP GET requests and responds with a JSON message. This is for Docker's [C++ Language Guide](https://docs.docker.com/language/cpp/).
+# Ice Hockey Game Server — C++ / Azure
 
-## API
+A multiplayer **Ice Hockey game server implemented in C++ using Boost.Asio**, designed to handle client connections and real-time match communication over TCP and UDP.
 
-The server only supports the HTTP GET method at the moment. When a GET request is received, the server responds with a JSON object:
+The server is containerized with Docker and deployed to **Microsoft Azure**, providing a cloud-hosted networking backend for multiplayer game clients.
 
-```json
-{
-    "message": "OK"
-}
+The architecture separates reliable connection/session operations from latency-sensitive real-time match events:
+
+* **TCP** — client connection, server session management, and create/join operations
+* **UDP** — real-time match events and gameplay communication
+* **Boost.Asio** — asynchronous networking
+* **Docker** — containerization
+* **Microsoft Azure** — cloud deployment
+
+## Architecture
+
+```text
+                         ┌─────────────────────┐
+                         │     Game Client     │
+                         └──────────┬──────────┘
+                                    │
+                       ┌────────────┴────────────┐
+                       │                         │
+                    TCP │                         │ UDP
+                       │                         │
+                       ▼                         ▼
+              ┌────────────────┐       ┌────────────────┐
+              │ Connection /   │       │ Match Events / │
+              │ Create / Join  │       │ Real-time Data │
+              └───────┬────────┘       └───────┬────────┘
+                      │                        │
+                      └───────────┬────────────┘
+                                  ▼
+                       ┌─────────────────────┐
+                       │   C++ Game Server   │
+                       │     Boost.Asio      │
+                       └──────────┬──────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │ Microsoft Azure  │
+                         └──────────────────┘
 ```
 
-## Running with Docker Compose
+## Networking Model
 
-Below is the [Dockerfile](Dockerfile) for the C++ application:
+The server uses two transport protocols for different responsibilities.
 
-```Dockerfile
-# Use the official Ubuntu image as the base image
-FROM ubuntu:latest
+### TCP — Reliable Operations
 
-# Set the working directory in the container
-WORKDIR /app
+TCP is used for operations where reliable and ordered delivery is required.
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install -y \
-    g++ \
-    libcpprest-dev \
-    libboost-all-dev \
-    libssl-dev \
-    cmake
+Current TCP functionality includes:
 
-# Copy the source code into the container
-COPY ok_api.cpp .
+* Establishing client connections
+* Creating a game/match
+* Joining an existing game/match
+* Connection and session management
 
-# Compile the C++ code
-RUN g++ -o ok_api ok_api.cpp -lcpprest -lboost_system -lboost_thread -lboost_chrono -lboost_random -lssl -lcrypto
+TCP provides reliable, ordered communication for these operations.
 
-# Expose the port on which the API will listen
-EXPOSE 8080
+### UDP — Match Events
 
-# Command to run the API when the container starts
-CMD ["./ok_api"]
+UDP is used for **real-time match events**, where low latency is more important than guaranteed delivery.
+
+This channel is intended for time-sensitive game communication where continuously sending current state/events is preferable to waiting for retransmission of an older packet.
+
+The separation between TCP and UDP allows the server to use the appropriate transport mechanism for each type of communication.
+
+## 🛠️ Technologies
+
+| Technology          | Purpose                             |
+| ------------------- | ----------------------------------- |
+| **C++**             | Core server implementation          |
+| **Boost.Asio**      | TCP/UDP networking                  |
+| **TCP**             | Connections, create/join operations |
+| **UDP**             | Real-time match events              |
+| **CMake**           | Build system                        |
+| **Docker**          | Containerization                    |
+| **Ubuntu Linux**    | Server environment                  |
+| **Microsoft Azure** | Cloud deployment                    |
+
+## ☁️ Azure Deployment
+
+The server runs as a Dockerized C++ application deployed to **Microsoft Azure**.
+
+The deployment provides a publicly accessible network endpoint for game clients and demonstrates the complete workflow from local C++ development to cloud-hosted multiplayer networking.
+
+```text
+C++ Development
+       │
+       ▼
+     CMake
+       │
+       ▼
+ Docker Image
+       │
+       ▼
+   Azure Host
+       │
+       ├──────── TCP ────────► Client Connections
+       │
+       └──────── UDP ────────► Match Events
 ```
 
-To run this application using Docker Compose, you'll need to create a `compose.yml` file.
+## 🐳 Docker
 
-Here's the `compose.yml` file:
+The server is packaged as a Docker container to provide a consistent Linux runtime environment between development and deployment.
 
-```yaml
-services:
-  ok-api:
-    image: ok-api
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-```
-
-To build and run the Docker image using Docker Compose, use the following command:
+### Build
 
 ```bash
-docker-compose up
+docker build -t ice-hockey-server .
 ```
 
-This will build the Docker image and then run it, mapping the container's port 8080 to port 8080 on the host machine. You can then access the API by visiting `http://localhost:8080` in your web browser.
+### Run
 
-## Contributing
+The server requires both TCP and UDP networking.
 
-Any feedback and contributions are welcome! Please open an issue before submitting a pull request.
+```bash
+docker run \
+  -p 8080:8080/tcp \
+  -p 8081:8081/udp \
+  ice-hockey-server
+```
 
-## License
+> The ports above should be replaced with the actual TCP and UDP ports configured by the server.
 
-[MIT License](LICENSE)
+## 📁 Project Structure
+
+```text
+.
+├── src/
+│   ├── ...
+├── CMakeLists.txt
+├── Dockerfile
+├── compose.yml
+└── README.md
+```
+
+## 🎯 Engineering Focus
+
+This project focuses on practical **network programming and multiplayer server development in C++**.
+
+Key areas demonstrated by the project include:
+
+* C++ network programming
+* TCP socket communication
+* UDP socket communication
+* Asynchronous I/O with Boost.Asio
+* Client connection management
+* Match creation and joining
+* Real-time multiplayer event handling
+* Separation of reliable and low-latency network traffic
+* CMake-based C++ builds
+* Linux server development
+* Docker containerization
+* Cloud deployment on Microsoft Azure
+
+## 🔭 Future Development
+
+Potential future improvements include:
+
+* Expand match and lobby functionality
+* Improve client/session lifecycle management
+* Add server-side validation
+* Add connection timeouts and recovery
+* Implement more comprehensive match state management
+* Add structured server logging
+* Add automated networking tests
+* Add CI/CD with GitHub Actions
+* Add monitoring and telemetry for the Azure deployment
+* Improve scalability for multiple simultaneous matches
+
+## 🤝 Contributing
+
+Feedback and contributions are welcome.
+
+Please open an issue to discuss significant changes before submitting a pull request.
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
